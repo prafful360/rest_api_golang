@@ -1,7 +1,9 @@
 package main
 
-import ("fmt")
+import (
+	Start "github.com/rest_api/http"
+)
 
 func main() {
-     fmt.Println("Hello! World")
+     Start.INIT()
 }
