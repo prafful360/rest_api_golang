@@ -2,13 +2,18 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
+	
 )
 
-
 func INIT() {
+
 	router := gin.Default()
-	// router.Use(CORSMiddleware())
-	// router.Use()
-	router.GET("/", GetAllUsers)
+
+	user := router.Group("users")
+	user.GET("", GetAll)
+	user.POST("", Insert)
+	user.PUT("", Update)
+	user.DELETE(("/:id"), Remove)
+
 	router.Run("localhost:8081")
 }

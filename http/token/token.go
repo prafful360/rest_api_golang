@@ -1,62 +1,78 @@
 package token
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"strings"
+	"errors"
+	"time"
+
+	jwt "github.com/dgrijalva/jwt-go"
+	Models "github.com/rest_api/Models"
+	bcrypt "golang.org/x/crypto/bcrypt"
 )
 
-func GenerateToken(header string, payload map[string]string, secret string) (string, error) {
+var jwt_key = []byte("my_secret_key")
 
-	h := hmac.New(sha256.New, []byte(secret))
-	header64 := base64.StdEncoding.EncodeToString([]byte(header))
+func HashPassword(pass_str string) ([]byte, string) {
 
-	payloadstr, err := json.Marshal(payload)
+	hash, err := bcrypt.GenerateFromPassword([]byte(pass_str), bcrypt.DefaultCost)
+
 	if err != nil {
-		fmt.Println("Error generating Token")
-		return string(payloadstr), err
+		return nil, err.Error()
 	}
 
-	payload64 := base64.StdEncoding.EncodeToString(payloadstr)
-	message := header64 + "." + payload64
-	unsignedStr := header + string(payloadstr)
-
-	h.Write([]byte(unsignedStr))
-	signature := base64.StdEncoding.EncodeToString(h.Sum(nil))
-
-	tokenStr := message + "." + signature
-	return tokenStr, nil
+	return hash, ""
 }
 
-func ValidateToken(token string, secret string) (bool, error) {
+func ValidatePassword(pass_str string, pass_hashed []byte) bool {
 
-	splitToken := strings.Split(token, ".")
- 
-	if len(splitToken) != 3 {
-		return false, nil
+	if err := bcrypt.CompareHashAndPassword(pass_hashed, []byte(pass_str)); err != nil {
+		return false
 	}
 
- 	header, err := base64.StdEncoding.DecodeString(splitToken[0])
+	return true
+}
+
+type Claims struct {
+	Username string `json:"username"`
+	jwt.StandardClaims
+}
+
+func GenerateToken() string {
+	var user Models.User
+
+	expirationTime := time.Now().Add(5 * time.Minute)
+	claims := &Claims{
+		Username: user.Email,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString(jwt_key)
+	if err != nil {
+		return err.Error()
+	}
+
+	return tokenString
+
+}
+
+func ValidateToken(token string) (bool, error) {
+
+	claims := &Claims{}
+
+	tkn, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwt_key, nil
+	})
+
 	if err != nil {
 		return false, err
 	}
-	payload, err := base64.StdEncoding.DecodeString(splitToken[1])
-	if err != nil {
-		return false, err
+
+	if !tkn.Valid {
+		return false, errors.New("Not Authorized")
 	}
 
- 	unsignedStr := string(header) + string(payload)
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write([]byte(unsignedStr))
-
-	signature := base64.StdEncoding.EncodeToString(h.Sum(nil))
-	fmt.Println(signature)
-
- 	if signature != splitToken[2] {
-		return false, nil
-	}
- 	return true, nil
+	return true, nil
 }

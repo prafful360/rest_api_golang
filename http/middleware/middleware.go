@@ -3,14 +3,15 @@ package middleware
 
 import (
 	"net/http"
-
-	"github.com/shadowshot-x/micro-product-go/authservice/jwt"
 	"github.com/gin-gonic/gin"
+	Token "github.com/rest_api/http/token"
 )
 
 func ValidateLogIn() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		token := c.Request.Header.Get("Token")
+
 		if token == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"status": false,
@@ -18,20 +19,22 @@ func ValidateLogIn() gin.HandlerFunc {
 			})
 			return
 		}
-		secret := "S0m3_R4n90m_sss"
-		check := jwt.ValidateToken(token, secret)
 
-		if check != nil {
+		check, err := Token.ValidateToken(token)
+
+		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"status": false,
 				"message": "Unauthorized Account!",
 			})
 			return
 		}
+
 		c.JSON(http.StatusAccepted, gin.H{
-			"status": true,
+			"status": check,
 			"message": "Authorized !",
 		})
+		
 		c.Next()
 	}
 }
